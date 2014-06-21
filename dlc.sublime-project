@@ -2,8 +2,30 @@
 	"folders":
 	[
 		{
-			"follow_symlinks": true,
-			"path": "."
+			"path": ".",
+			"name": "root",
+			"folder_exclude_patterns":["dlc", "test"]
+		},{
+			"path": "./dlc",
+			"name": "Source",
+			"folder_exclude_patterns":["ply"]
+		},{
+			"path": "./test",
+			"name": "test"
+		}
+	],
+	"build_systems":
+	[
+		{
+			"name":"sublimeRepl",
+			"selector":"source.python",
+			"target": "run_existing_window_command",
+			"id": "repl_python_run",
+			"file": "config/Python/Main.sublime-menu"
+		},{
+			"name": "run DIS",
+			"selector": "source.dis",
+			"cmd":["dvm", "${file_name}"]
 		}
 	]
 }
