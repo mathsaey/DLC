@@ -6,6 +6,11 @@ test/s.out
 *.dot*
 *.pyc
 
+# PLY files #
+
+parser.out
+parsetab.py
+
 # Editor files #
 
 *.sublime-workspace

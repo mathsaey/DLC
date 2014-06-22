@@ -8,7 +8,7 @@
 # It is responsible for parsing the command line parameters
 # and invoking the various parts of the compiler.
 
-import lexer
+import frontend
 
 def compile(str):
 	pass
@@ -20,22 +20,20 @@ def compileFile(path, output = None):
 
 
 test = '''
-func : fac(n)
-	if n > 0
-		then n * main(n - 1)
-		else 1
+func fac(n)
+#	if n > 0
+#		then n * main(n - 1)
+#		else 1
 
-func main(n)
-	fac    := fac(n)
-    other  := (33 + 3) - 35 
-	fac * other
+func main(a,b)
+#	fac    := 5
+#    other  := (33 + 3) - 35 
+#	fac * other
 '''
 
+test = '''
+func test():
+	4 < 4 < 4
+'''
 
-lex = lexer.lex(test)
-
-try:
-	for tok in lex:
-		pass
-except Exception, e:
-	print e
+print frontend.convert(test)

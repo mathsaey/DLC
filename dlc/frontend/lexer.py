@@ -19,15 +19,19 @@ keywords = {
 	'then' : 'THEN',
 	'else' : 'ELSE',
 	'for'  : 'FOR',
+	'let'  : 'LET',
 	'in'   : 'IN',
+	'do'   : 'DO'
 }
 
 tokens = [
 	'PLUS', 'MIN', 'MUL', 'DIV',
 	'LT', 'LTEQ', 'GT', 'GTEQ',
 	'EQ', 'NOT', 'AND', 'OR',
-	'LPAREN', 'RPAREN', 'LBRAC', 'RBRAC', 
+	'LPAREN', 'RPAREN', 
+	'LBRACK', 'RBRACK', 
 	'NAME', 'NUM', 'BIND', 
+	'SEP', 'COL', 'DOT'
 ] + list(keywords.values())
 
 # ------------------ #
@@ -51,10 +55,13 @@ t_OR     = r'\|\|'
 
 t_LPAREN = r'\('
 t_RPAREN = r'\)'
-t_LBRAC  = r'\['
-t_RBRAC  = r'\]'
+t_LBRACK = r'\['
+t_RBRACK = r'\]'
 
 t_BIND   = r':='
+t_SEP    = r','
+t_COL    = r':'
+t_DOT    = r'\.'
 
 t_ignore = ' \t'
 t_ignore_COMMENT = r'\#.*'
@@ -64,7 +71,7 @@ t_ignore_COMMENT = r'\#.*'
 # -------------------- #
 
 def t_NAME(t):
-	r'(\w|_)(\w|\d|!|\?|_|-)*'
+	r'([a-zA-Z]|_)(\w|!|\?|-)*'
 	t.type = keywords.get(t.value,'NAME')
 	return t
 
@@ -73,28 +80,12 @@ def t_NUM(t):
 	t.value = int(t.value)
 	return t
 
-# ----------- #
-# Other Rules #
-# ----------- #
-
 def t_newline(t):
 	r'\n'
 	t.lexer.lineno += len(t.value)
 
 def t_error(t):
-	lines = t.lexer.lexdata
-	startIdx = lines.rfind('\n', 0, t.lexpos) + 1
-	stopIdx  = lines.find('\n', t.lexpos)
-
-	if startIdx < 0 : startIdx = 0
-	if stopIdx  < 0 : stopIdx  = len(lines)
-
-	column  = (t.lexpos - startIdx) + 1
-
-	raise error.DLCError(
-		lines[startIdx:stopIdx], t.lineno, 
-		"Illegal character", column, column + 1)
-
+	error.add(error.IllegalCharError(t))
 	t.lexer.skip(1)
 
 # ------------ #
