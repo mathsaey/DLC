@@ -20,15 +20,16 @@ def compileFile(path, output = None):
 
 
 test = '''
+func test(a): 5
 func fac(n):
 	if n > 0
-		then n * main(n - 1)
+		then n * fac(n - 1, 5)
 		else 1
 
-func main(a,a):
+func main(a,b):
 	let 
 		fac    := 5
-    	fac  := (33 + 3) - 35 
+    	other  := (33 + 3) - 35 
     in
 		fac * other < 4
 

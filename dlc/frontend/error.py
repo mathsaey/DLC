@@ -117,8 +117,14 @@ def syntax(token):
 def duplicateFunc(production, idx):
 	add(fromProduction(production, idx, "Duplicate function name"))
 
+def duplicateName(production, idx):
+	add(fromProduction(production, idx, "Duplicate name encountered"))
+
+def unknownFunc(production, idx):
+	add(fromProduction(production, idx, "Unknown function name encountered"))
+
 def unknownName(production, idx):
 	add(fromProduction(production, idx, "Unknown name encountered"))
 
-def duplicateName(production, idx):
-	add(fromProduction(production, idx, "Duplicate name encountered"))
+def wrongArgCount(production, idx):
+	add(fromProduction(production, idx, "Function called with incorrect amount of arguments"))

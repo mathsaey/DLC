@@ -129,17 +129,23 @@ class SemanticError(Exception): pass
 
 # Keep track of the defined
 # function names
-funLst = []
+funLst = {}
 
-def addFunc(name):
+def addFunc(name, args):
 	if name in funLst:
 		raise SemanticError()
 	else:
-		funLst.append(name)
+		funLst.update({name : args})
+
+def funcArgs(name):
+	try: return funLst[name]
+	except KeyError: raise SemanticError
 
 # Scope naming
 # ------------
 
+# Keep track of the variables
+# in the current scope
 scopes = [[]]
 
 def newScope():
@@ -154,7 +160,7 @@ def addName(name):
 	else:
 		scopes[-1].append(name)
 
-def findName(name):
+def nameDefined(name):
 	for scope in scopes:
 		if name in scope:
 			return True
@@ -192,7 +198,7 @@ def p_signature(p):
 	'''signature : FUNC NAME LPAREN parLst RPAREN'''
 	p[0] = (p[2], p[4])
 	try:
-		addFunc(p[2])
+		addFunc(p[2], len(p[4]))
 	except SemanticError:
 		error.duplicateFunc(p,2)
 
@@ -230,7 +236,7 @@ def p_expression(p):
 def p_name(p):
 	''' expression : NAME'''
 	name = p[1]
-	if findName(name):
+	if nameDefined(name):
 		p[0] = PNameRef(p[1])
 	else:
 		error.unknownName(p, 1)
@@ -296,6 +302,12 @@ def p_addName(p):
 def p_call(p):
 	''' call : NAME LPAREN argLst RPAREN'''
 	p[0] = PCall(p[1], p[3])
+
+	try: 
+		if funcArgs(p[1]) is not len(p[3]):
+			error.wrongArgCount(p, 1)
+	except SemanticError:
+		error.unknownFunc(p,1)
 
 def p_argLst(p):
 	'''argLst : expression SEP argLst
