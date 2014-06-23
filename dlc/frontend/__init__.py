@@ -7,12 +7,11 @@
 # input language and trasforming it into 
 # a valid intermediate graph representation.
 
-import lexer
 import parser
 import error
 
-def convert(string):
-	res = parser.parser.parse(string)
+def convert(input):
+	tree = parser.parse(input)
 	error.verify()
-	return res
+	return tree
 

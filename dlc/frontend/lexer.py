@@ -14,14 +14,16 @@ import error
 # ----------------- #
 
 keywords = {
-	'func' : 'FUNC',
-	'if'   : 'IF',
-	'then' : 'THEN',
-	'else' : 'ELSE',
-	'for'  : 'FOR',
-	'let'  : 'LET',
-	'in'   : 'IN',
-	'do'   : 'DO'
+	'true'  : 'TRUE',
+	'false' : 'FALSE',
+	'func'  : 'FUNC',
+	'if'    : 'IF',
+	'then'  : 'THEN',
+	'else'  : 'ELSE',
+	'for'   : 'FOR',
+	'let'   : 'LET',
+	'in'    : 'IN',
+	'do'    : 'DO'
 }
 
 tokens = [
@@ -85,7 +87,7 @@ def t_newline(t):
 	t.lexer.lineno += len(t.value)
 
 def t_error(t):
-	error.add(error.IllegalCharError(t))
+	error.illegalChar(t)
 	t.lexer.skip(1)
 
 # ------------ #

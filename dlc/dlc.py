@@ -20,20 +20,21 @@ def compileFile(path, output = None):
 
 
 test = '''
-func fac(n)
-#	if n > 0
-#		then n * main(n - 1)
-#		else 1
+func fac(n):
+	if n > 0
+		then n * main(n - 1)
+		else 1
 
-func main(a,b)
-#	fac    := 5
-#    other  := (33 + 3) - 35 
-#	fac * other
-'''
+func main(a,a):
+	let 
+		fac    := 5
+    	fac  := (33 + 3) - 35 
+    in
+		fac * other < 4
 
-test = '''
-func test():
-	4 < 4 < 4
+func _for(a):
+	for el in [0..a] do
+		el
 '''
 
 print frontend.convert(test)

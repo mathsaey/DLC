@@ -9,66 +9,116 @@
 # Error Definitions #
 # ----------------- #
 
-class FrontEndError(Exception): pass
+class FrontEndError(Exception): 
+	def __init__(self):
+		self.pool = []
 
-class TokenError(Exception): 
-	def __init__(self, token, length, message):
+	def add(self, error):
+		self.pool.append(error)
+
+	def show(self):
+		for err in self.pool:
+			print err
+
+	def verify(self):
+		if self.pool:
+			self.show()
+			raise self
+
+class SourceError(Exception): 
+	def __init__(self, src, lin, col, len, msg):
+		self.src = src
+		self.lin = lin
+		self.col = col
+		self.len = len
+		self.msg = msg
+
+	def __repr__(self):
+		return "(%d:%d): %s" (self.lin, self.col, self.msg)
+
+	def __str__(self):
+		msg = "(%d:%d) %s" % (self.lin, self.col, self.msg)
+		src = "\t%s" % self.src
+
+		idx     = self.col - 1
+		tabs    = self.src[:idx].count('\t')
+		spaces  = idx - tabs
+
+		# Line which marks the error
+		mrk = "\t%s%s%s" % ("\t" * tabs, " " * spaces, "~" * self.len)
+
+		return '%s\n%s\n%s' % (msg, src, mrk)
+
+# -------------- #
+# Error Handling #
+# -------------- #
+
+def fromLines(lines, lineno, lexpos, length, msg):
+	startIdx = lines.rfind('\n', 0, lexpos) + 1
+	stopIdx  = lines.find('\n', lexpos)
+
+	if startIdx < 0 : startIdx = 0
+	if stopIdx  < 0 : stopIdx  = len(lines)
+
+	return SourceError(
+				lines[startIdx:stopIdx],
+				lineno,
+				(lexpos - startIdx) + 1,
+				length,
+				msg
+			)
+
+def fromToken(token, length, message):
 		lines  = token.lexer.lexdata
 		lexpos = token.lexpos
 
-		startIdx = lines.rfind('\n', 0, lexpos) + 1
-		stopIdx  = lines.find('\n', lexpos)
+		return fromLines(
+			lines,
+			token.lineno,
+			lexpos,
+			length,
+			message
+		)
 
-		if startIdx < 0 : startIdx = 0
-		if stopIdx  < 0 : stopIdx  = len(lines)
+def fromProduction(production, idx, message):
+	lines  = production.lexer.lexdata
+	lexpos = production.lexpos(idx)
+	lineno = production.lineno(idx)
 
-		self.line     = lines[startIdx:stopIdx]
-		self.lineno   = token.lineno
-		self.colStart = (lexpos - startIdx) + 1
-		self.length   = length
-		self.message  = message
-
-	def __repr__(self):
-		return "(%d:%d): %s" (self.lineno, self.colStart, self.message)
-
-	def __str__(self):
-		# Error message
-		error = "(%d:%d) Error: %s" % (self.lineno, self.colStart, self.message)
-
-		# Line with Error
-		line = "\t%s" % self.line
-
-		markIdx  = self.colStart - 1
-		tabs     = self.line[:markIdx].count('\t')
-		spaces   = markIdx - tabs
-
-		# Line which marks the error
-		mark = "\t%s%s%s" % ("\t" * tabs, " " * spaces, "~" * self.length)
-
-		return '%s\n%s\n%s' % (error, line, mark)
-
-class IllegalCharError(TokenError):
-	def __init__(self, token):
-		super(IllegalCharError, self).__init__(
-			token, 1, "Illegal character")
-
-class SyntaxError(TokenError):
-	def __init__(self, token):
-		super(SyntaxError, self).__init__(
-			token, len(token.value), "Syntax error")
-
-
+	return fromLines(
+		lines,
+		lineno,
+		lexpos,
+		len(production[idx]),
+		message
+		)
+	
 # ---------- #
 # Error Pool #
 # ---------- #
 
-__POOL__ = []
+__POOL__ = FrontEndError()
+def add(err): __POOL__.add(err)
+def verify(): __POOL__.verify()
 
-def add(err):
-	__POOL__.append(err)
+# -------------- #
+# Error creation #
+# -------------- #
 
-def verify():
-	if __POOL__:
-		for err in __POOL__:
-			print err
-		raise FrontEndError()
+def illegalChar(token):
+	add(fromToken(token, 1, "Illegal character"))
+
+def syntax(token):
+	try:
+		add(fromToken(token, len(token.value), "Syntax error"))
+	except TypeError:
+		add(fromToken(token, 1, "Syntax error"))
+
+def duplicateFunc(production, idx):
+	add(fromProduction(production, idx, "Duplicate function name"))
+
+def unknownName(production, idx):
+	add(fromProduction(production, idx, "Unknown name encountered"))
+
+def duplicateName(production, idx):
+	add(fromProduction(production, idx, "Duplicate name encountered"))
