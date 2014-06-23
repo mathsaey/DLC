@@ -49,6 +49,10 @@ class SourceError(Exception):
 
 		return '%s\n%s\n%s' % (msg, src, mrk)
 
+class EOFError(Exception):
+	def __str__(self):
+		return "End of file reached before parser finished."
+
 # -------------- #
 # Error Handling #
 # -------------- #
@@ -114,6 +118,9 @@ def syntax(token):
 	except TypeError:
 		add(fromToken(token, 1, "Syntax error"))
 
+def eof():
+	add(EOFError())
+
 def duplicateFunc(production, idx):
 	add(fromProduction(production, idx, "Duplicate function name"))
 
@@ -128,3 +135,6 @@ def unknownName(production, idx):
 
 def wrongArgCount(production, idx):
 	add(fromProduction(production, idx, "Function called with incorrect amount of arguments"))
+
+def wrongType(production, idx):
+	add(fromProduction(production, idx, "Incorrect type"))

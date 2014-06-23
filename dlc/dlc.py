@@ -20,10 +20,13 @@ def compileFile(path, output = None):
 
 
 test = '''
-func test(a): 5
+func test(): 5
+
+func kek(): true and test()
+
 func fac(n):
 	if n > 0
-		then n * fac(n - 1, 5)
+		then n * fac(n - 1)
 		else 1
 
 func main(a,b):
@@ -33,9 +36,9 @@ func main(a,b):
     in
 		fac * other < 4
 
-func _for(a):
-	for el in [0..a] do
-		el
+#func _for(a):
+#	for el in [0..a] do
+#		el
 '''
 
 print frontend.convert(test)

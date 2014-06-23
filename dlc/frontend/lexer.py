@@ -16,6 +16,10 @@ import error
 keywords = {
 	'true'  : 'TRUE',
 	'false' : 'FALSE',
+	'not'   : 'NOT',
+	'and'   : 'AND',
+	'or'    : 'OR',
+
 	'func'  : 'FUNC',
 	'if'    : 'IF',
 	'then'  : 'THEN',
@@ -27,9 +31,8 @@ keywords = {
 }
 
 tokens = [
+	'LT', 'LTEQ', 'GT', 'GTEQ', 'EQ',
 	'PLUS', 'MIN', 'MUL', 'DIV',
-	'LT', 'LTEQ', 'GT', 'GTEQ',
-	'EQ', 'NOT', 'AND', 'OR',
 	'LPAREN', 'RPAREN', 
 	'LBRACK', 'RBRACK', 
 	'NAME', 'NUM', 'BIND', 
@@ -49,11 +52,7 @@ t_LT     = r'<'
 t_LTEQ   = r'=<'
 t_GT     = r'>'
 t_GTEQ   = r'>='
-
 t_EQ     = r'='
-t_NOT    = r'!'
-t_AND    = r'&&'
-t_OR     = r'\|\|'
 
 t_LPAREN = r'\('
 t_RPAREN = r'\)'

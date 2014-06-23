@@ -10,26 +10,90 @@ import ply.yacc
 import lexer
 import error
 
+# --------------- #
+# Semantic Checks #
+# --------------- #
+
+# Function Tracking
+# -----------------
+
+class SemanticError(Exception): pass
+
+# Keep track of the defined
+# function names
+funMap = {}
+
+def addFunc(name, args):
+	if name in funMap:
+		raise SemanticError()
+	else:
+		funMap.update({name : (args, None)})
+
+def funcArgs(name):
+	try: return funMap[name][0]
+	except KeyError: raise SemanticError
+
+def funcTyp(name):
+	return funMap[name][1]
+
+def setFuncType(name, typ):
+	funMap[name] = (funMap[name][0], typ)
+
+# Scope naming
+# ------------
+
+# Keep track of the variables
+# in the current scope
+scopes = []
+
+def newScope():
+	scopes.append({})
+
+def popScope():
+	scopes.pop()
+
+def addName(name, typ):
+	if name in scopes[-1]:
+		raise SemanticError()
+	else:
+		scopes[-1].update({name : typ})
+
+def nameDefined(name):
+	for scope in scopes:
+		if name in scope:
+			return True
+	return False
+
+def getNameTyp(name):
+	for scope in scopes:
+		if name in scope:
+			return scope[name]
+
 # ----------#
 # AST Types #
 # ----------#
 
-class PNode(object): pass
+class PNode(object):
+	def __init__(self):
+		self.typ = None
 
 # Functions
 # ---------
 
 class PFunc(PNode):
 	def __init__(self, name, args, body):
+		super(PFunc,self).__init__()
 		self.name = name
 		self.args = args
 		self.body = body
+		self.typ  = body.typ
 
 	def __repr__(self):
 		return "func %s%s{%s}" % (self.name, self.args, self.body)
 
 class PParam(PNode):
 	def __init__(self, name):
+		super(PParam,self).__init__()
 		self.name  = name
 
 	def __repr__(self):
@@ -37,8 +101,10 @@ class PParam(PNode):
 
 class PCall(PNode):
 	def __init__(self, name, args):
+		super(PCall,self).__init__()
 		self.name = name
 		self.args = args
+		self.typ  = funcTyp(self.name)
 
 	def __repr__(self):
 		return "%s%s" % (self.name, self.args)
@@ -48,34 +114,42 @@ class PCall(PNode):
 
 class PITL(PNode):
 	def __init__(self, cond, true, false):
+		super(PITL,self).__init__()
 		self.cond  = cond
 		self.true  = true
 		self.false = false
+		self.typ   = true.typ
 
 	def __repr__(self):
 		return "if (%s) then {%s} else {%s}" % (self.cond, self.true, self.false)
 
 class PFor(PNode):
 	def __init__(self, name, gen, bod):
+		super(PFor,self).__init__()
 		self.name = name
 		self.gen  = gen
 		self.bod  = bod
+		self.typ  = list
 
 	def __repr__(self):
 		return "for %s in %s do %s" % (self.name, self.gen, self.bod)
 
 class PLet(PNode):
 	def __init__(self, binds, expr):
+		super(PLet,self).__init__()
 		self.binds = binds
 		self.expr  = expr
+		self.typ   = expr.typ
 
 	def __repr__(self):
 		return "let %s in %s" % (self.binds, self.expr)
 
 class PBind(PNode):
 	def __init__(self, name, value):
+		super(PBind,self).__init__()
+		self.typ   = value.typ
 		self.value = value
-		self.name = name
+		self.name  = name
 
 	def __repr__(self):
 		return "%s := %s" % (self.name, self.value)
@@ -84,21 +158,23 @@ class PBind(PNode):
 # ----------
 
 class POp(PNode):
-	def __init__(self, op, args):
+	def __init__(self, op, args, tIn, tOut):
+		super(POp,self).__init__()
 		self.op = op
+		self.tIn = tIn
+		self.typ = tOut
 		self.args = args
 
 	def __repr__(self):
 		return "%s(%s)" % (self.op, self.args)
 
 class BinOp(POp):
-	def __init__(self, op, l, r):
-		super(BinOp, self).__init__(op, [l,r])
+	def __init__(self, op, l, r, tIn, tOut):
+		super(BinOp, self).__init__(op, [l,r], tIn, tOut)
 
 class UnOp(POp):
-	def __init__(self, op, x):
-		super(UnOp, self).__init__(op, x)
-		self.typ = x.typ
+	def __init__(self, op, x, tIn, tOut):
+		super(UnOp, self).__init__(op, [x], tIn, tOut)
 
 # Terminals
 # ---------
@@ -106,65 +182,31 @@ class UnOp(POp):
 class PNameRef(PNode):
 	def __init__(self, name):
 		self.name = name
+		self.typ  = getNameTyp(name)
 
 	def __repr__(self):
 		return self.name
 
 class PData(PNode): 
 	def __init__(self, val, typ):
-		self.typ = type
+		self.typ = typ
 		self.val = val
 
 	def __repr__(self):
 		return str(self.val)
 
-# -------------- #
-# Semantic State #
-# -------------- #
+# ------------- #
+# Type Checking #
+# ------------- #
 
-# Function Tracking
-# -----------------
+def inferOp(p, idx):
+	op = p[0]
+	for arg in op.args:
+		if arg.typ and arg.typ is not op.tIn:
+			error.wrongType(p, idx)
 
-class SemanticError(Exception): pass
-
-# Keep track of the defined
-# function names
-funLst = {}
-
-def addFunc(name, args):
-	if name in funLst:
-		raise SemanticError()
-	else:
-		funLst.update({name : args})
-
-def funcArgs(name):
-	try: return funLst[name]
-	except KeyError: raise SemanticError
-
-# Scope naming
-# ------------
-
-# Keep track of the variables
-# in the current scope
-scopes = [[]]
-
-def newScope():
-	scopes.append([])
-
-def popScope():
-	scopes.pop()
-
-def addName(name):
-	if name in scopes[-1]:
-		raise SemanticError()
-	else:
-		scopes[-1].append(name)
-
-def nameDefined(name):
-	for scope in scopes:
-		if name in scope:
-			return True
-	return False
+def inferUnOp(p):  inferOp(p, 1)
+def inferBinOp(p): inferOp(p, 2)
 
 # ------ #
 # Parser #
@@ -191,7 +233,9 @@ def p_funLst(p):
 
 def p_function(p):
 	''' function : newscope signature COL expression'''
-	p[0] = PFunc(p[2][0], p[2][1], p[4])
+	func = PFunc(p[2][0], p[2][1], p[4])
+	setFuncType(func.name, func.typ)
+	p[0] = func
 	popScope()
 
 def p_signature(p):
@@ -212,7 +256,7 @@ def p_parLst(p):
 	else:             p[0] = [PParam(p[1])] + p[3]
 
 	if len(p) > 1:
-		try: addName(p[1])
+		try: addName(p[1], None)
 		except SemanticError: error.duplicateName(p, 1)
 
 def p_newScope(p):
@@ -271,7 +315,7 @@ def p_bind(p):
 	''' bind : NAME BIND expression '''
 	p[0] = PBind(p[1], p[3])
 	try:
-		addName(p[1])
+		addName(p[1], p[3].typ)
 	except SemanticError:
 		error.duplicateName(p,1)
 
@@ -293,7 +337,7 @@ def p_for_in(p):
 def p_addName(p):
 	'''addname : NAME'''
 	newScope()
-	addName(p[1])
+	addName(p[1], None)
 	p[0] = p[1]
 
 # call
@@ -323,18 +367,16 @@ def p_argLst(p):
 
 def p_array(p):
 	''' array : LBRACK argLst RBRACK'''
-	op = POp('ARRAY', p[2])
-	op.typ = 'arr'
-	p[0] = op
+	try: p[0] = POp('ARRAY', p[2], None, list)
+	except SemanticError: error.wrongType(p,1)
 
 def p_range(p):
 	''' range : LBRACK expression DOT DOT expression RBRACK'''
-	op = BinOp('RANGE', p[2], p[5])
-	op.typ = 'range'
-	p[0] = op
+	try: p[0] = BinOp('RANGE', p[2], p[5], int, list)
+	except SemanticError: error.wrongType(p,1)
 
-# calculations
-# ------------
+# Operations
+# ----------
 
 precedence = [
 	('nonassoc', 'AND', 'OR', 'NOT'),
@@ -345,36 +387,56 @@ precedence = [
 	('right', 'UMIN')
 ]
 
-def p_binops(p):
+def p_binops_int(p):
 	''' ops : expression PLUS expression
 	        | expression MIN  expression
 	        | expression MUL  expression
 	        | expression DIV  expression
-	        | expression LT   expression
+	'''
+	p[0] = BinOp(p[2], p[1], p[3], int, int)
+	inferBinOp(p)
+
+def p_binops_comp(p):
+	''' ops : expression LT   expression
 	        | expression LTEQ expression
 	        | expression GT   expression
 	        | expression GTEQ expression
-	        | expression AND  expression
-	        | expression OR   expression
 	        | expression EQ   expression
 	'''
-	p[0] = BinOp(p[2], p[1], p[3])
+	p[0] = BinOp(p[2], p[1], p[3], int, bool)
+	inferBinOp(p)
 
-def p_unops(p):
-	''' ops : NOT expression
-			| MIN expression            %prec UMIN
-	        | LPAREN expression RPAREN
+def p_binops_bool(p):
+	''' ops : expression AND expression
+	        | expression OR  expression
 	'''
-	if len(p) == 3: p[0] = UnOp(p[1], p[2])
-	else : p[0] = p[2]
+	p[0] = BinOp(p[2], p[1], p[3], bool, bool)
+	inferBinOp(p)
+
+def p_unops_not(p):
+	''' ops : NOT expression'''
+	p[0] = UnOp(p[1], p[2], bool, bool)
+	inferUnOp(p)
+
+def p_unops_min(p):
+	'''	ops	: MIN expression            %prec UMIN'''
+	p[0] = UnOp(p[1], p[2], int, int)
+	inferUnOp(p)
+
+def p_unops_paren(p):
+	''' ops : LPAREN expression RPAREN'''
+	p[0] = p[2]
 
 # ------- #
 # General #
 # ------- #
 
 def p_error(t):
-	error.syntax(t)
-	ply.yacc.errok()
+	if t:
+		error.syntax(t)
+		ply.yacc.errok()
+	else:
+		error.eof()
 
 __parser__ = ply.yacc.yacc()
 
