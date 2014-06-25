@@ -12,6 +12,7 @@ import IGR
 import sys
 import argparse
 import frontend
+import optimize
 
 # ---------------------- #
 # Command line arguments #
@@ -30,35 +31,37 @@ args = argParser.parse_args()
 # ------------------- #
 
 test = '''
-func tmp(a, b): 
-	if 5 < 4
-	then a
-	else if true then a else b
+func constant(): 93
+func notCalled(): notCalled()
 
-#func normal(a):
-#	if true
-#	then a
-#	else 0
-
-func fuu(a,b): let c := 5 d := c + 1 in -a + b
+func cse(a):
+	let
+		one := a + 5 + 3
+		two := a + 5 + 3
+	in
+		one + two
 
 #
 #func for_(a,b):
 #	for el in [a..b] do
 #		el + 1
 #
-#func test(): 32
-#func fac(n):
-#	if n > 0
-#		then n * fac(n - 1)
-#		else 1
-#
-#func main(a,b):
-#	let 
-#		fac    := 5
-#    	other  := (33 + 3) - 35 
-#    in
-#		fac * other < 4
+func test(a): a + 5
+
+func fac(n):
+	if n > 0
+		then n * fac(n - 1)
+		else 1
+
+func kek(n): fac(n)
+
+func main(a,b):
+	let 
+		none   := [1,2,3]
+		fac    := fac(constant())
+    	other  := (33 + 3) - 35 
+    in
+		cse(5) + test(2)
 '''
 
 
@@ -66,7 +69,11 @@ func fuu(a,b): let c := 5 d := c + 1 in -a + b
 #else: file = open(args.path, 'r')
 
 frontend.read(test)
-IGR.dot(frontend.get())
+graph = frontend.get()
+optimize.prune(graph)
+optimize.inline(graph)
+
+IGR.dot(graph)
 
 
 # fileName, fileExtension = os.path.splitext(args.path)

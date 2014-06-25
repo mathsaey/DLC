@@ -30,6 +30,12 @@ class Graph(object):
 		self.functions.update({name : sg})
 		self.subGraphs.append(sg)
 		sg.graph = self
+		sg.func  = sg
+
+	def delSubGraph(self, name):
+		sg = self[name]
+		del self.functions[name]
+		self.subGraphs.remove(sg)
 
 	def getId(self):
 		self.currentid += 1
@@ -41,12 +47,14 @@ class Graph(object):
 
 class SubGraph(object):
 	def __init__(self):
+		self.isRec = False
 		self.graph = None
 		self.nodes = []
 		self.entry = []
 		self.exit  = InPort(self, 0)
 		self.args  = 0
 		self.name  = ''
+		self.func  = None
 
 	def addParSlot(self):
 		port = OutPort(self, self.args)
@@ -54,11 +62,18 @@ class SubGraph(object):
 		self.args += 1
 		return port
 
+	def delNode(self, node):
+		self.nodes.remove(node)
+
 	def getId(self):
 		return self.graph.getId()
 
 	def isFunc(self):
 		return isinstance(self.graph, Graph)
+
+	def getFunc(self):
+		if self.isFunc(): return self
+		else: return self.graph.sg.getFunc()
 
 	def __iter__(self):
 		return iter(self.nodes)
@@ -66,6 +81,10 @@ class SubGraph(object):
 	def __iadd__(self, node):
 		self.nodes.append(node)
 		return self
+
+	def __contains__(self, item):
+		print item
+		return item in self.nodes
 
 # ----- #
 # Nodes #
@@ -80,6 +99,7 @@ class Node(object):
 		self.ports = [InPort(self,i) for i in xrange(0, args)]
 		self.sg    += self
 
+	def remove(self): self.sg.delNode(self)
 	def isCompound(self): return False
 	def isCall(self): return False
 	def isOp(self): return False
@@ -103,8 +123,10 @@ class OperationNode(Node):
 class CallNode(Node):
 	def __init__(self, sg, name, args):
 		super(CallNode, self).__init__(sg, args)
-		self.name = name
-		self.args = args
+		self.isRec = sg.func.name == name
+		if self.isRec: self.sg.func.isRec = True
+		self.name  = name
+		self.args  = args
 
 	def __str__(self):
 		return "CallNode '%s' %s" % (self.id, self.name)
@@ -125,8 +147,13 @@ class CompoundNode(Node):
 		self.ports.append(InPort(self, self.args))
 		self.args += 1
 
-	def getId(self):
-		return self.sg.getId()
+	def getId(self): return self.sg.getId()
+
+	def bind(self, sg):
+		for i in xrange(0, self.args): sg.addParSlot()
+		sg.func  = self.sg.func
+		sg.graph = self
+
 
 class IfNode(CompoundNode):
 	def __init__(self, sg):
@@ -135,16 +162,14 @@ class IfNode(CompoundNode):
 		self.els = None
 
 	def bindThen(self, sg):
+		self.bind(sg)
 		self.thn = sg
-		sg.graph = self
 		sg.name  = "cmp_if_thn_%d" % self.id
-		for i in xrange(0, self.args): sg.addParSlot()
 
 	def bindElse(self, sg):
+		self.bind(sg)
 		self.els = sg
-		sg.graph = self
 		sg.name  = "cmp_if_els_%d" % self.id
-		for i in xrange(0, self.args): sg.addParSlot()
 
 	def __iter__(self):
 		return iter((self.thn, self.els))
@@ -155,10 +180,9 @@ class ForNode(CompoundNode):
 		self.body = None
 
 	def bindBody(self, body):
+		self.bind(body)
 		self.body  = body
-		body.graph = self
 		body.name  = "cmp_forin_%d" % self.id
-		for i in xrange(0, self.args): body.addParSlot()
 
 	def __iter__(self):
 		return iter((self.body,))
@@ -174,7 +198,14 @@ class BindAble(object):
 	def bind(self, target):
 		raise NotImplementedError
 
+	def bindMany(self, lst):
+		for el in lst:
+			self.bind(el)
+
 	def isBound(self, target):
+		raise NotImplementedError
+
+	def removeBound(self, target):
 		raise NotImplementedError
 
 	def isLit(self): return False
@@ -212,6 +243,9 @@ class OutPort(Port):
 	def isBound(self):
 		return self.targets != []
 
+	def removeBound(self, target):
+		self.targets.remove(target)
+
 	def __iter__(self):
 		return iter(self.targets)
 
@@ -225,7 +259,7 @@ class Literal(BindAble):
 
 	def bind(self, target):
 		if self.isBound():
-			l = Literal(self.val)
+			l = Literal(self.val, self.typ)
 			l.bind(target)
 		else:
 			self.dst = target
@@ -234,3 +268,7 @@ class Literal(BindAble):
 
 	def isBound(self):
 		return self.dst is not None
+
+	def removeBound(self, target):
+		self.dst.src = None
+		self.dst = None

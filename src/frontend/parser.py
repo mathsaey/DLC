@@ -13,7 +13,6 @@
 #	- Semantic error reporting
 #	- Correct creation of compounds
 
-
 import ply.yacc
 import lexer
 import error
@@ -309,13 +308,15 @@ def p_for_gen(p):
 
 def p_call(p):
 	''' expression : NAME LPAREN argLst RPAREN'''
+	node = IGR.CallNode(getSg(), p[1], len(p[3]))
+
 	if p[1] not in graph:
 		error.unknownFunc(p,1)
 	elif graph[p[1]].args is not len(p[3]):
 		error.wrongArgCount(p, 1)
+	else: 
+		node.out.typ = graph[p[1]].exit.typ
 
-	node = IGR.CallNode(getSg(), p[1], len(p[3]))
-	node.out.typ = graph[p[1]].exit.typ
 	for i in xrange(0, len(p[3]) - 1):
 		el = p[3][i]
 		el.bind(node[i])
