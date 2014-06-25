@@ -3,210 +3,128 @@
 # DLC
 
 # The parser transforms a list of tokens into
-# a valid syntax tree.
+# an intermediate graph representation.
 # Once again, ply is utilized to do this.
+
+# Besides the actual parsing, the parser 
+# is responsible for:
+#	- (limited) type checks
+#	- let...in name resolving
+#	- Semantic error reporting
+#	- Correct creation of compounds
+
+import intermediate.graph as IGR
 
 import ply.yacc
 import lexer
 import error
 
-# --------------- #
-# Semantic Checks #
-# --------------- #
+# ------------ #
+# Parser State #
+# ------------ #
 
-# Function Tracking
-# -----------------
+# Program and current subgraph
+# ----------------------------
 
-class SemanticError(Exception): pass
+graph    = None
+subGraph = [None]
 
-# Keep track of the defined
-# function names
-funMap = {}
+def setSg(sg):
+	subGraph[-1] = sg
 
-def addFunc(name, args):
-	if name in funMap:
-		raise SemanticError()
-	else:
-		funMap.update({name : (args, None)})
+def getSg():
+	return subGraph[-1]
 
-def funcArgs(name):
-	try: return funMap[name][0]
-	except KeyError: raise SemanticError
+# Standard scoping Rules
+# ----------------------
 
-def funcTyp(name):
-	return funMap[name][1]
+scopes = [[]]
 
-def setFuncType(name, typ):
-	funMap[name] = (funMap[name][0], typ)
+def newScope(): scopes[-1].append({})
+def popScope(): scopes[-1].pop()
 
-# Scope naming
-# ------------
-
-# Keep track of the variables
-# in the current scope
-scopes = []
-
-def newScope():
-	scopes.append({})
-
-def popScope():
-	scopes.pop()
-
-def addName(name, typ):
-	if name in scopes[-1]:
-		raise SemanticError()
-	else:
-		scopes[-1].update({name : typ})
-
-def nameDefined(name):
+def addName(name, port): scopes[-1][-1].update({name : port})
+def nameInScope(name):
 	for scope in scopes:
-		if name in scope:
-			return True
+		if name in scope[-1]: return True
 	return False
 
-def getNameTyp(name):
-	for scope in scopes:
+def getLocalName(name, lvl):
+	for scope in scopes[lvl]:
 		if name in scope:
 			return scope[name]
 
-# ----------#
-# AST Types #
-# ----------#
+def getName(name, lvl = -1):
+	res = getLocalName(name, lvl)
+	if res: 
+		return res
+	elif lvl is - len(scopes): 
+		return None
 
-class PNode(object):
-	def __init__(self):
-		self.typ = None
+	# Recursively get the name from outside the
+	# current compound scope
+	externalPort = getName(name, lvl - 1)
+	compound = subGraph[-1].graph
 
-# Functions
-# ---------
+	# Ensure another subgraph of the compound did
+	# not add this port yet.
+	for port in compound.ports:
+		if port.src is externalPort:
+			return subGraph[-1].entry[port.idx]
 
-class PFunc(PNode):
-	def __init__(self, name, args, body):
-		super(PFunc,self).__init__()
-		self.name = name
-		self.args = args
-		self.body = body
-		self.typ  = body.typ
+	# Add a new port, bind it to
+	# the external name definition
+	compound.addPort()
+	externalPort.bind(compound[-1])
+	return subGraph[-1].entry[-1]
 
-	def __repr__(self):
-		return "func %s%s{%s}" % (self.name, self.args, self.body)
+# Compound scoping Rules
+# ----------------------
 
-class PParam(PNode):
-	def __init__(self, name):
-		super(PParam,self).__init__()
-		self.name  = name
+def scopeCompound():
+	scopes.append([])
 
-	def __repr__(self):
-		return self.name
+def popCompound():
+	scopes.pop()
 
-class PCall(PNode):
-	def __init__(self, name, args):
-		super(PCall,self).__init__()
-		self.name = name
-		self.args = args
-		self.typ  = funcTyp(self.name)
+def scopeSg(sg):
+	subGraph.append(sg)
 
-	def __repr__(self):
-		return "%s%s" % (self.name, self.args)
+def popSg():
+	subGraph.pop()
 
-# Compound structures
-# -------------------
+def isCompound():
+	return len(subGraph) > 1
 
-class PITL(PNode):
-	def __init__(self, cond, true, false):
-		super(PITL,self).__init__()
-		self.cond  = cond
-		self.true  = true
-		self.false = false
-		self.typ   = true.typ
+# ----------- #
+# Convenience #
+# ----------- #
 
-	def __repr__(self):
-		return "if (%s) then {%s} else {%s}" % (self.cond, self.true, self.false)
-
-class PFor(PNode):
-	def __init__(self, name, gen, bod):
-		super(PFor,self).__init__()
-		self.name = name
-		self.gen  = gen
-		self.bod  = bod
-		self.typ  = list
-
-	def __repr__(self):
-		return "for %s in %s do %s" % (self.name, self.gen, self.bod)
-
-class PLet(PNode):
-	def __init__(self, binds, expr):
-		super(PLet,self).__init__()
-		self.binds = binds
-		self.expr  = expr
-		self.typ   = expr.typ
-
-	def __repr__(self):
-		return "let %s in %s" % (self.binds, self.expr)
-
-class PBind(PNode):
-	def __init__(self, name, value):
-		super(PBind,self).__init__()
-		self.typ   = value.typ
-		self.value = value
-		self.name  = name
-
-	def __repr__(self):
-		return "%s := %s" % (self.name, self.value)
-
-# Operations
-# ----------
-
-class POp(PNode):
-	def __init__(self, op, args, tIn, tOut):
-		super(POp,self).__init__()
-		self.op = op
-		self.tIn = tIn
-		self.typ = tOut
-		self.args = args
-
-	def __repr__(self):
-		return "%s(%s)" % (self.op, self.args)
-
-class BinOp(POp):
-	def __init__(self, op, l, r, tIn, tOut):
-		super(BinOp, self).__init__(op, [l,r], tIn, tOut)
-
-class UnOp(POp):
-	def __init__(self, op, x, tIn, tOut):
-		super(UnOp, self).__init__(op, [x], tIn, tOut)
-
-# Terminals
-# ---------
-
-class PNameRef(PNode):
-	def __init__(self, name):
-		self.name = name
-		self.typ  = getNameTyp(name)
-
-	def __repr__(self):
-		return self.name
-
-class PData(PNode): 
-	def __init__(self, val, typ):
-		self.typ = typ
-		self.val = val
-
-	def __repr__(self):
-		return str(self.val)
-
-# ------------- #
-# Type Checking #
-# ------------- #
-
-def inferOp(p, idx):
-	op = p[0]
-	for arg in op.args:
-		if arg.typ and arg.typ is not op.tIn:
+def checkTypes(p, idx, values, expected):
+	for i in xrange(0, len(values)):
+		if values[i].typ and (values[i].typ is not expected[i]):
 			error.wrongType(p, idx)
 
-def inferUnOp(p):  inferOp(p, 1)
-def inferBinOp(p): inferOp(p, 2)
+def matchTypes(p, idx, t1, t2, t3):
+	if (t1.typ and t2.typ) and (t1.typ is not t2.typ):
+		error.typeMismatch(p, idx)
+	else:
+		t3.typ = t1.typ
+
+def create_binop(p, op, tIn, tOut):
+	checkTypes(p, 2, (p[1], p[3]), (tIn, tIn))
+	node = IGR.OperationNode(getSg(), op, 2)
+	node.out.typ = tOut
+	p[1].bind(node[0])
+	p[3].bind(node[1])
+	p[0] = node.out
+
+def create_unop(p, op, t):
+	checkTypes(p, 1, (p[2],), (t,))
+	node = IGR.OperationNode(getSg(), op, 1)
+	node.out.type = t
+	p[0] = node.out
+	p[2].bind(node[0])
 
 # ------ #
 # Parser #
@@ -214,12 +132,30 @@ def inferBinOp(p): inferOp(p, 2)
 
 tokens = lexer.tokens
 
+precedence = [
+	('nonassoc', 'LET'),
+	('nonassoc', 'IN'),
+	('nonassoc', 'FOR'),
+	('nonassoc', 'DO'),
+	('left', 'LBRACK', 'RBRACK'),
+	('nonassoc', 'AND', 'OR', 'NOT'),
+	('nonassoc', 'EQ'),
+	('nonassoc', 'LT', 'LTEQ', 'GT', 'GTEQ'),
+	('left', 'PLUS', 'MIN'),
+	('left', 'MUL', 'DIV'),
+	('nonassoc', 'UMIN'),
+	('nonassoc', 'ELSE'),
+	('nonassoc', 'THEN'),
+]
+
 def p_program(p):
 	'''program : function_list
 	           |
 	'''
-	if len(p) == 1: p[0] = []
-	else: p[0] = p[1]
+
+def p_newScope(p):
+	'''newscope : '''
+	newScope()
 
 # Functions 
 # ---------
@@ -228,130 +164,164 @@ def p_funLst(p):
 	''' function_list : function function_list
 	                  | function
 	'''
-	if   len(p) == 3: p[0] = [p[1]] + p[2]
-	elif len(p) == 2: p[0] = [p[1]]
 
 def p_function(p):
-	''' function : newscope signature COL expression'''
-	func = PFunc(p[2][0], p[2][1], p[4])
-	setFuncType(func.name, func.typ)
-	p[0] = func
+	''' function : signature COL expression'''
+	p[3].bind(getSg().exit)
+	setSg(None)
 	popScope()
 
 def p_signature(p):
-	'''signature : FUNC NAME LPAREN parLst RPAREN'''
-	p[0] = (p[2], p[4])
-	try:
-		addFunc(p[2], len(p[4]))
-	except SemanticError:
-		error.duplicateFunc(p,2)
+	'''signature : FUNC NAME LPAREN startFunc parLst RPAREN'''
+	if p[2] in graph: error.duplicateFunc(p,2)
+	graph.addSubGraph(getSg(), p[2])
+	getSg().name = p[2]
 
+def p_startFunc(p):
+	''' startFunc : newscope '''
+	sg = IGR.SubGraph()
+	setSg(sg)
+	
 def p_parLst(p):
 	'''parLst : NAME SEP parLst
 	          | NAME
 	          |
 	'''
-	if   len(p) == 1: p[0] = []
-	elif len(p) == 2: p[0] = [PParam(p[1])]
-	else:             p[0] = [PParam(p[1])] + p[3]
-
 	if len(p) > 1:
-		try: addName(p[1], None)
-		except SemanticError: error.duplicateName(p, 1)
+		if nameInScope(p[1]):
+			error.duplicateName(p, 1)
+		else:
+			addName(p[1], getSg().addParSlot())
 
-def p_newScope(p):
-	'''newscope : '''
-	newScope()
-
-# Expressions
-# -----------
-
-def p_expression(p):
-	''' expression : letin
-	               | ifthenelse
-	               | forin
-	               | call
-	               | range
-	               | array
-	               | ops
-	'''
-	p[0] = p[1]
+# Data
+# ----
 
 def p_name(p):
 	''' expression : NAME'''
-	name = p[1]
-	if nameDefined(name):
-		p[0] = PNameRef(p[1])
+	res = getName(p[1])
+	if res:
+		p[0] = res
 	else:
 		error.unknownName(p, 1)
+		p[0] = IGR.Literal(None, None)
 
 def p_num(p):
 	''' expression : NUM'''
-	p[0] = PData(p[1], int)
+	p[0] = IGR.Literal(p[1], int)
 
-def p_bool(p):
-	''' expression : TRUE
-	               | FALSE
-	'''
-	p[0] = PData(p[1], bool)
+def p_true(p):
+	''' expression : TRUE '''
+	p[0] = IGR.Literal(True, bool)
+
+def p_false(p):
+	''' expression : FALSE '''
+	p[0] = IGR.Literal(False, bool)
 
 
 # Let ... in
 # ----------
 
 def p_letin(p):
-	''' letin : LET newscope bindLst IN expression'''
-	p[0] = PLet(p[3], p[5])
+	''' expression : LET newscope bindLst IN expression'''
+	p[0] = p[5]
 	popScope()
 
 def p_bindLst(p):
 	''' bindLst : bind bindLst
 	            | bind
 	'''
-	if   len(p) == 3: p[0] = [p[1]] + p[2]
-	elif len(p) == 2: p[0] = [p[1]]
 
 def p_bind(p):
 	''' bind : NAME BIND expression '''
-	p[0] = PBind(p[1], p[3])
-	try:
-		addName(p[1], p[3].typ)
-	except SemanticError:
-		error.duplicateName(p,1)
+	if nameInScope(p[1]): error.duplicateName(p,1)
+	addName(p[1], p[3])
 
 # if then else
 # ------------
 
 def p_if_then_else(p):
-	'''ifthenelse : IF expression THEN expression ELSE expression'''
-	p[0] = PITL(p[2], p[4], p[6])
+	'''expression : IF expression THEN thenScope expression ELSE elseScope expression'''
+	node = getSg().graph
+	popCompound()
+	popSg()
+
+	p[0] = node.out
+	p[2].bind(node[0])
+
+	p[5].bind(node.thn.exit)
+	p[8].bind(node.els.exit)
+
+	checkTypes(p, 1, (p[2],), (bool,))
+	matchTypes(p, 1, node.thn.exit, node.els.exit, node.out)
+
+
+def p_if_thenScope(p):
+	''' thenScope : '''
+	scopeCompound()
+	ifNode = IGR.IfNode(getSg())
+	thn = IGR.SubGraph()
+	els = IGR.SubGraph()
+	ifNode.bindThen(thn)
+	ifNode.bindElse(els)
+	scopeSg(thn)
+
+def p_if_elseScope(p):
+	''' elseScope : '''
+	then = getSg()
+	popSg()
+	ifNode = then.graph
+	els = ifNode.els
+	scopeSg(els)
 
 # for ... in ...
 # --------------
 
 def p_for_in(p):
-	''' forin : FOR addname IN expression DO expression'''
-	p[0] = PFor(p[2], p[4], p[6])
-	popScope()
+	''' expression : FOR forGenerator DO expression'''
 
-def p_addName(p):
-	'''addname : NAME'''
+	node = getSg().graph
+	node.out.typ = list
+	p[4].bind(node.body.exit)
+	p[2].bind(node[0])
+	p[0] = node.out
+
+	popCompound()
+	popSg()
+
+def p_for_gen(p):
+	''' forGenerator : NAME IN expression'''
+	p[0] = p[3]
+
+	forNode = IGR.ForNode(getSg())
+	body    = IGR.SubGraph()
+	forNode.bindBody(body)
+
+	scopeCompound()
+	scopeSg(body)
+
 	newScope()
-	addName(p[1], None)
-	p[0] = p[1]
+	addName(p[1], body.entry[0])
 
 # call
 # ----
 
 def p_call(p):
-	''' call : NAME LPAREN argLst RPAREN'''
-	p[0] = PCall(p[1], p[3])
-
-	try: 
-		if funcArgs(p[1]) is not len(p[3]):
-			error.wrongArgCount(p, 1)
-	except SemanticError:
+	''' expression : NAME LPAREN argLst RPAREN'''
+	if p[1] not in graph:
 		error.unknownFunc(p,1)
+	elif graph[p[1]].args is not len(p[3]):
+		error.wrongArgCount(p, 1)
+
+	node = IGR.CallNode(getSg(), p[1], len(p[3]))
+	node.out.typ = graph[p[1]].exit.typ
+	for i in xrange(0, len(p[3]) - 1):
+		el = p[3][i]
+		el.bind(node[i])
+
+	p[0] = node.out
+	for i in xrange(0, len(p[3])):
+		p[3][i].bind(node[i])
+
 
 def p_argLst(p):
 	'''argLst : expression SEP argLst
@@ -366,63 +336,82 @@ def p_argLst(p):
 # ------
 
 def p_array(p):
+	''' expression : array
+	               | range
+	               | arrAccess
+	'''
+	p[0] = p[1]
+
+def p_array_create(p):
 	''' array : LBRACK argLst RBRACK'''
-	try: p[0] = POp('ARRAY', p[2], None, list)
-	except SemanticError: error.wrongType(p,1)
+	node = IGR.OperationNode(getSg(), 'array', len(p[2]))
+	node.out.typ = list
+	for i in xrange(0, len(p[2])):
+		el = p[2][i]
+		el.bind(node[i])
+
+	p[0] = node.out
+
+def p_array_access(p):
+	''' arrAccess : expression LBRACK expression RBRACK '''
+	node = IGR.OperationNode(getSg(), 'arrGet', 2)
+	p[0] = node.out
+	p[1].bind(node[0])
+	p[3].bind(node[1])
 
 def p_range(p):
 	''' range : LBRACK expression DOT DOT expression RBRACK'''
-	try: p[0] = BinOp('RANGE', p[2], p[5], int, list)
-	except SemanticError: error.wrongType(p,1)
+	node = IGR.OperationNode(getSg(), 'range', 2)
+	node.out.typ = list
+	p[0] = node.out
+	p[2].bind(node[0])
+	p[5].bind(node[1])
 
 # Operations
 # ----------
 
-precedence = [
-	('nonassoc', 'AND', 'OR', 'NOT'),
-	('nonassoc', 'EQ'),
-	('nonassoc', 'LT', 'LTEQ', 'GT', 'GTEQ'),
-	('left', 'PLUS', 'MIN'),
-	('left', 'MUL', 'DIV'),
-	('right', 'UMIN')
-]
-
-def p_binops_int(p):
-	''' ops : expression PLUS expression
-	        | expression MIN  expression
-	        | expression MUL  expression
-	        | expression DIV  expression
-	'''
-	p[0] = BinOp(p[2], p[1], p[3], int, int)
-	inferBinOp(p)
-
-def p_binops_comp(p):
-	''' ops : expression LT   expression
-	        | expression LTEQ expression
-	        | expression GT   expression
-	        | expression GTEQ expression
-	        | expression EQ   expression
-	'''
-	p[0] = BinOp(p[2], p[1], p[3], int, bool)
-	inferBinOp(p)
-
-def p_binops_bool(p):
-	''' ops : expression AND expression
-	        | expression OR  expression
-	'''
-	p[0] = BinOp(p[2], p[1], p[3], bool, bool)
-	inferBinOp(p)
-
+def p_ops(p):
+	''' expression : ops '''
+	p[0] = p[1]
+def p_binops_plus(p):
+	''' ops : expression PLUS expression'''
+	create_binop(p, 'add', int, int)
+def p_binops_mim(p):
+	''' ops : expression MIN  expression '''
+	create_binop(p, 'sub', int, int)
+def p_binops_mul(p):
+	''' ops : expression MUL  expression '''
+	create_binop(p, 'mul', int, int)
+def p_binops_div(p):
+	''' ops : expression DIV  expression '''
+	create_binop(p, 'div', int, int)
+def p_binops_lt(p):
+	''' ops : expression LT   expression '''
+	create_binop(p, 'less',   int, bool)
+def p_binops_lteq(p):
+	''' ops : expression LTEQ expression '''
+	create_binop(p, 'lessEq', int, bool)
+def p_binops_gt(p):
+	''' ops : expression GT   expression '''
+	create_binop(p, 'more',   int, bool)
+def p_binops_gteq(p): 
+	''' ops : expression GTEQ expression '''
+	create_binop(p, 'moreEq', int, bool)
+def p_binops_eq(p):
+	''' ops : expression EQ   expression '''
+	create_binop(p, 'equals', None, bool)
+def p_binops_and(p):
+	''' ops : expression AND expression '''
+	create_binop(p, 'and', bool, bool)
+def p_binops_or(p):
+	''' ops : expression OR  expression '''
+	create_binop(p, 'or', bool, bool)
 def p_unops_not(p):
 	''' ops : NOT expression'''
-	p[0] = UnOp(p[1], p[2], bool, bool)
-	inferUnOp(p)
-
+	create_unop(p, 'not', bool)
 def p_unops_min(p):
-	'''	ops	: MIN expression            %prec UMIN'''
-	p[0] = UnOp(p[1], p[2], int, int)
-	inferUnOp(p)
-
+	'''	ops	: MIN expression %prec UMIN'''
+	create_unop(p, 'neg', int)
 def p_unops_paren(p):
 	''' ops : LPAREN expression RPAREN'''
 	p[0] = p[2]
@@ -441,4 +430,8 @@ def p_error(t):
 __parser__ = ply.yacc.yacc()
 
 def parse(input):
-	return __parser__.parse(input)
+	global graph 
+	graph  = IGR.Graph()
+
+	__parser__.parse(input)
+	return graph

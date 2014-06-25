@@ -9,6 +9,7 @@
 # and invoking the various parts of the compiler.
 
 import frontend
+import intermediate.dot
 
 def compile(str):
 	pass
@@ -20,10 +21,15 @@ def compileFile(path, output = None):
 
 
 test = '''
-func test(): 5
+func tmp(): true
 
-func kek(): true and test()
+func topkek(): tmp() and if 5 then 5 else 3
 
+func for_(a,b):
+	for el in [a..b] do
+		el + 1
+
+func test(): 32
 func fac(n):
 	if n > 0
 		then n * fac(n - 1)
@@ -41,4 +47,4 @@ func main(a,b):
 #		el
 '''
 
-print frontend.convert(test)
+intermediate.dot.dot(frontend.convert(test))

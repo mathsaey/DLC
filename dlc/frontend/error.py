@@ -5,6 +5,8 @@
 # This module contains the errors that 
 # the frontend may throw.
 
+import sys
+
 # ----------------- #
 # Error Definitions #
 # ----------------- #
@@ -18,7 +20,7 @@ class FrontEndError(Exception):
 
 	def show(self):
 		for err in self.pool:
-			print err
+			print >> sys.stderr, err
 
 	def verify(self):
 		if self.pool:
@@ -138,3 +140,6 @@ def wrongArgCount(production, idx):
 
 def wrongType(production, idx):
 	add(fromProduction(production, idx, "Incorrect type"))
+
+def typeMismatch(production, idx):
+	add(fromProduction(production, idx, "Type mismatch"))
