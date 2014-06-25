@@ -15,3 +15,9 @@ def convert(input):
 	error.verify()
 	return tree
 
+def read(input):
+	parser.parse(input)
+
+def get():
+	error.verify()
+	return parser.get()

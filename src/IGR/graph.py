@@ -49,13 +49,16 @@ class SubGraph(object):
 		self.name  = ''
 
 	def addParSlot(self):
-		self.args += 1
-		port = OutPort(self)
+		port = OutPort(self, self.args)
 		self.entry.append(port)
+		self.args += 1
 		return port
 
 	def getId(self):
 		return self.graph.getId()
+
+	def isFunc(self):
+		return isinstance(self.graph, Graph)
 
 	def __iter__(self):
 		return iter(self.nodes)
@@ -73,9 +76,13 @@ class Node(object):
 		self.id    = sg.getId()
 		self.sg    = sg
 		self.args  = args
-		self.out   = OutPort(self)
+		self.out   = OutPort(self, 0)
 		self.ports = [InPort(self,i) for i in xrange(0, args)]
 		self.sg    += self
+
+	def isCompound(self): return False
+	def isCall(self): return False
+	def isOp(self): return False
 
 	def __getitem__(self, key):
 			return self.ports[key]
@@ -91,6 +98,8 @@ class OperationNode(Node):
 	def __str__(self):
 		return "OpNode '%s' %s" % (self.id, self.op)
 
+	def isOp(self): return True
+
 class CallNode(Node):
 	def __init__(self, sg, name, args):
 		super(CallNode, self).__init__(sg, args)
@@ -100,12 +109,16 @@ class CallNode(Node):
 	def __str__(self):
 		return "CallNode '%s' %s" % (self.id, self.name)
 
+	def isCall(self): return True
+
 class CompoundNode(Node):
 	def __init__(self, sg, args):
 		super(CompoundNode, self).__init__(sg, args)
 
 	def __iter__(self):
 		raise NotImplementedError
+
+	def isCompound(self): return True
 
 	def addPort(self):
 		for sg in self: sg.addParSlot()
@@ -167,14 +180,14 @@ class BindAble(object):
 	def isLit(self): return False
 
 class Port(BindAble): 
-	def __init__(self, node):
+	def __init__(self, node, idx):
 		super(Port, self).__init__()
 		self.node = node
+		self.idx  = idx
 
 class InPort(Port):
 	def __init__(self, node, idx):
-		super(InPort, self).__init__(node)
-		self.idx = idx
+		super(InPort, self).__init__(node, idx)
 		self.src = None
 
 	def bind(self, src):
@@ -187,8 +200,8 @@ class InPort(Port):
 		return self.isBound() and self.src.isLit()
 
 class OutPort(Port):
-	def __init__(self, node):
-		super(OutPort, self).__init__(node)
+	def __init__(self, node, idx):
+		super(OutPort, self).__init__(node, idx)
 		self.targets = []
 
 	def bind(self, target):

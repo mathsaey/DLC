@@ -13,7 +13,7 @@
 #	- Semantic error reporting
 #	- Correct creation of compounds
 
-import intermediate.graph as IGR
+import IGR
 
 import ply.yacc
 import lexer
@@ -26,7 +26,7 @@ import error
 # Program and current subgraph
 # ----------------------------
 
-graph    = None
+graph    = IGR.Graph()
 subGraph = [None]
 
 def setSg(sg):
@@ -427,11 +427,10 @@ def p_error(t):
 	else:
 		error.eof()
 
-__parser__ = ply.yacc.yacc()
+__parser__ = ply.yacc.yacc(outputdir = 'frontend')
 
 def parse(input):
-	global graph 
-	graph  = IGR.Graph()
-
 	__parser__.parse(input)
+
+def get():
 	return graph
