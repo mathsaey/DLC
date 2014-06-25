@@ -6,7 +6,7 @@
 			"name": "root",
 			"folder_exclude_patterns":["dlc", "test"]
 		},{
-			"path": "./dlc",
+			"path": "./src",
 			"name": "Source",
 			"folder_exclude_patterns":["ply"]
 		},{

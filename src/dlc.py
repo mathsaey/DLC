@@ -9,10 +9,9 @@
 # and invoking the various parts of the compiler.
 
 import IGR
+import sys
 import argparse
 import frontend
-import fileinput
-
 
 # ---------------------- #
 # Command line arguments #
@@ -20,7 +19,7 @@ import fileinput
 
 argParser = argparse.ArgumentParser(description = "The DIS Compiler")
 
-argParser.add_argument("path", help = "The path to the file you want to compile.")
+#argParser.add_argument("path", help = "The path to the file you want to compile.")
 argParser.add_argument("--dot", action = "store_true", help = "Generate a dot graph of the program")
 argParser.add_argument("--dry_run", action = "store_true", help = "Don't compile the program but abort after parsing the input file.")
 
@@ -30,9 +29,43 @@ args = argParser.parse_args()
 # Compilation Process #
 # ------------------- #
 
-for line in fileinput.input(args.path):
-	frontend.read(line)
+test = '''
+func tmp(a, b): 
+	if 5 < 4
+	then a
+	else if true then a else b
 
+#func normal(a):
+#	if true
+#	then a
+#	else 0
+
+func fuu(a,b): let c := 5 d := c + 1 in -a + b
+
+#
+#func for_(a,b):
+#	for el in [a..b] do
+#		el + 1
+#
+#func test(): 32
+#func fac(n):
+#	if n > 0
+#		then n * fac(n - 1)
+#		else 1
+#
+#func main(a,b):
+#	let 
+#		fac    := 5
+#    	other  := (33 + 3) - 35 
+#    in
+#		fac * other < 4
+'''
+
+
+#if args.path is '-': file = sys.stdin
+#else: file = open(args.path, 'r')
+
+frontend.read(test)
 IGR.dot(frontend.get())
 
 
@@ -48,42 +81,3 @@ IGR.dot(frontend.get())
 
 # backEnd.setUp(fileName, args.backEnd, args.output)
 # backEnd.toFile()
-
-
-
-
-def compile(str):
-	pass
-
-def compileFile(path, output = None):
-	f = open(path, 'r')
-	r = compile(f.read)
-	return r
-
-
-test = '''
-func tmp(): true
-
-func for_(a,b):
-	for el in [a..b] do
-		el + 1
-
-func test(): 32
-func fac(n):
-	if n > 0
-		then n * fac(n - 1)
-		else 1
-
-func main(a,b):
-	let 
-		fac    := 5
-    	other  := (33 + 3) - 35 
-    in
-		fac * other < 4
-
-#func _for(a):
-#	for el in [0..a] do
-#		el
-'''
-
-IGR.dot(frontend.convert(test))

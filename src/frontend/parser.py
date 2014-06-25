@@ -13,11 +13,11 @@
 #	- Semantic error reporting
 #	- Correct creation of compounds
 
-import IGR
 
 import ply.yacc
 import lexer
 import error
+import IGR
 
 # ------------ #
 # Parser State #
@@ -63,20 +63,22 @@ def getName(name, lvl = -1):
 
 	# Recursively get the name from outside the
 	# current compound scope
+	# bind all the required compound nodes on the
+	# way down
+	compound     = subGraph[lvl].graph
 	externalPort = getName(name, lvl - 1)
-	compound = subGraph[-1].graph
 
 	# Ensure another subgraph of the compound did
 	# not add this port yet.
 	for port in compound.ports:
 		if port.src is externalPort:
-			return subGraph[-1].entry[port.idx]
+			return subGraph[lvl].entry[port.idx]
 
 	# Add a new port, bind it to
 	# the external name definition
 	compound.addPort()
 	externalPort.bind(compound[-1])
-	return subGraph[-1].entry[-1]
+	return subGraph[lvl].entry[-1]
 
 # Compound scoping Rules
 # ----------------------
@@ -183,15 +185,15 @@ def p_startFunc(p):
 	setSg(sg)
 	
 def p_parLst(p):
-	'''parLst : NAME SEP parLst
-	          | NAME
-	          |
+	''' parLst : par SEP parLst
+	           | par
+	           |
 	'''
-	if len(p) > 1:
-		if nameInScope(p[1]):
-			error.duplicateName(p, 1)
-		else:
-			addName(p[1], getSg().addParSlot())
+
+def p_par(p):
+	''' par : NAME '''
+	if nameInScope(p[1]): error.duplicateName(p, 1)
+	addName(p[1], getSg().addParSlot())
 
 # Data
 # ----
@@ -427,7 +429,7 @@ def p_error(t):
 	else:
 		error.eof()
 
-__parser__ = ply.yacc.yacc(outputdir = 'frontend')
+__parser__ = ply.yacc.yacc()
 
 def parse(input):
 	__parser__.parse(input)
