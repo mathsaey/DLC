@@ -1,0 +1,8 @@
+func test(a,b):
+	let 
+		c := b * (a + 3) 
+		d := b * (a + 3) 
+	in 
+		c * d
+
+func main(a,b): test(a,b)

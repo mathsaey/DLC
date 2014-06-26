@@ -1,0 +1,21 @@
+func ; illegalToken(): 5
+
+func unknownNames():
+	let
+		a := aFunc()         # unknown function
+		b := unknownNames(a) # Inccorect argument amount 
+		a := 5               # Duplicate name in scope
+	in
+		5 + c                # Unknown name
+	
+func typeMismatch():         # if branches with different types
+	if true 
+		then 5
+		else true
+
+func invalidTypes():       # Incorrect type
+	(5 + 2) < true
+
+
+func returnsBool(): true
+func invalidType(): returnsBool() + 5

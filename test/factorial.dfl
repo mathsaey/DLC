@@ -1,0 +1,6 @@
+func fac(n):
+	if n > 0
+		then n * fac(n - 1)
+		else 1
+
+func main(n): fac(n)

@@ -1,0 +1,18 @@
+func fac(n):
+	if n = 0
+		then 1
+		else n * fac (n - 1)
+
+func cse(a):
+	let 
+		b := (-a + 8) * a
+		c := (-a + 8) * b
+		d := fac(33)
+	in 
+		b + c
+
+func constant(): 49
+
+#func main(a,b): cse(constant())
+
+func main(a,b): fac(10) * fac(20) + cse(a)

@@ -1,0 +1,11 @@
+func forin1(a,b,c,d):
+	for el in [a,b,c,d] do 
+		el + 1
+
+func forin2(a,b):
+	for el in [a..b] do
+		el + b
+
+func main(a,b,c,d): 
+	for e in forin2(a,b) do
+		e + (length forin1(a,b,c,d))
