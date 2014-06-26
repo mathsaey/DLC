@@ -7,6 +7,8 @@
 # input language and trasforming it into 
 # a valid intermediate graph representation.
 
+from error import FrontEndError as Error
+
 import parser
 import error
 

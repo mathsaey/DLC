@@ -10,8 +10,6 @@
 
 import IGR
 
-INLINE_THRESHOLD = 2
-
 def node(node, dct):
 	if node.isCall() and not node.isRec:
 		lst = dct[node.name]
@@ -29,7 +27,9 @@ def findCalls(graph, dct):
 	)
 
 def insert(graph, sg, node):
+	sg = sg.copy()
 	node.sg.nodes += sg.nodes
+
 	out = sg.exit.src
 	out.removeBound(sg.exit)
 	out.bindMany(node.out.targets)
@@ -39,12 +39,11 @@ def insert(graph, sg, node):
 
 		for target in port:
 			node[i].src.bind(target)
-		for port in node.ports:
-			port.src.removeBound(port)
+			node[i].src.removeBound(node[i])
 
 	node.remove()
 
-def checkCalls(graph, dct):
+def checkCalls(graph, dct, threshold):
 	didChange = False
 	for (name, lst) in dct.iteritems():
 		if   name == 'main': continue
@@ -54,16 +53,15 @@ def checkCalls(graph, dct):
 
 		elif graph[name].isRec: continue
 
-		elif len(lst) <= INLINE_THRESHOLD or graph[name].args is 0:
+		elif len(lst) <= threshold or graph[name].args is 0:
 			for node in lst: 
 				insert(graph, graph[name], node)
 				didChange = True
 
 	return didChange
 
-def inline(graph):
-	didChange = True
-	while didChange:
+def inline(graph, threshold):
+	while True:
 		callDct = {key : [] for key in graph.functions.iterkeys()}
 		findCalls(graph, callDct)
-		didChange = checkCalls(graph, callDct)
+		if not checkCalls(graph, callDct, threshold): return

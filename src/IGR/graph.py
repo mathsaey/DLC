@@ -7,6 +7,8 @@
 # The intermediate representation does not check for 
 # errors while being created.
 
+import copy
+
 class Graph(object):
 	def __init__(self):
 		self.subGraphs = []
@@ -56,6 +58,13 @@ class SubGraph(object):
 		self.name  = ''
 		self.func  = None
 
+	def copy(self):
+		new = copy.deepcopy(self)
+		new.graph = self.graph
+		for node in new:
+			node.id = node.sg.getId()
+		return new
+
 	def addParSlot(self):
 		port = OutPort(self, self.args)
 		self.entry.append(port)
@@ -83,7 +92,6 @@ class SubGraph(object):
 		return self
 
 	def __contains__(self, item):
-		print item
 		return item in self.nodes
 
 # ----- #
@@ -132,6 +140,14 @@ class CallNode(Node):
 		return "CallNode '%s' %s" % (self.id, self.name)
 
 	def isCall(self): return True
+
+class ConstantNode(Node):
+	def __init__(self, sg, val):
+		super(ConstantNode, self).__init__(sg, 1)
+		self.val = val
+
+	def __str__(self):
+		return "Constant '%s' %s" % (self.id, self.val)
 
 class CompoundNode(Node):
 	def __init__(self, sg, args):

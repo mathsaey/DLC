@@ -5,15 +5,16 @@
 # This module defines functionality to
 # traverse the program graph.
 
-def traverse(graph, nodeFunc, sgStart, sgStop, compStart, compStop):
-	for sg in list(graph):
+def traverse(g, nodeF, sgStart, sgStop, compStart, compStop, comp = True):
+	for sg in list(g):
 		sgStart(sg)
 
 		for node in sg:
-			nodeFunc(node)
+			nodeF(node)
 			if node.isCompound():
 				compStart(node)
-				traverse(node, nodeFunc, sgStart, sgStop, compStart, compStop)
+				if comp: traverse(
+					node, nodeF, sgStart, sgStop, compStart, compStop, comp)
 				compStop(node)
 
 		sgStop(sg)

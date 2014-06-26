@@ -4,23 +4,12 @@
 
 # This package contains a few optimizations
 
-import IGR
-from autoinline import inline
+import prune as p
+import autoinline
+import constants
 
+def run(graph, inline = True, prune = True):
+	constants.remove(graph)
 
-def node(x):
-	if not x.out.isBound():
-		x.sg.delNode(x)
-		for port in x.ports:
-			port.src.removeBound(port)
-		prune(x.sg.func.graph)
-
-def prune(graph):
-	IGR.traverse(
-		graph,
-		lambda x : node(x),
-		lambda x : None,
-		lambda x : None,
-		lambda x : None,
-		lambda x : None
-	)
+	if prune:  p.prune(graph)
+	if inline: autoinline.inline(graph, 0)

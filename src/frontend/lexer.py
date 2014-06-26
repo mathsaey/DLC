@@ -14,6 +14,7 @@ import error
 # ----------------- #
 
 keywords = {
+	'length': 'LENGTH',
 	'true'  : 'TRUE',
 	'false' : 'FALSE',
 	'not'   : 'NOT',
@@ -31,7 +32,7 @@ keywords = {
 }
 
 tokens = [
-	'LT', 'LTEQ', 'GT', 'GTEQ', 'EQ',
+	'LT', 'LTEQ', 'GT', 'GTEQ', 'EQ', 'NEQ',
 	'PLUS', 'MIN', 'MUL', 'DIV',
 	'LPAREN', 'RPAREN', 
 	'LBRACK', 'RBRACK', 
@@ -53,6 +54,7 @@ t_LTEQ   = r'=<'
 t_GT     = r'>'
 t_GTEQ   = r'>='
 t_EQ     = r'='
+t_NEQ    = r'!='
 
 t_LPAREN = r'\('
 t_RPAREN = r'\)'

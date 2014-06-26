@@ -120,10 +120,10 @@ def create_binop(p, op, tIn, tOut):
 	p[3].bind(node[1])
 	p[0] = node.out
 
-def create_unop(p, op, t):
-	checkTypes(p, 1, (p[2],), (t,))
+def create_unop(p, op, tIn, tOut):
+	checkTypes(p, 1, (p[2],), (tIn,))
 	node = IGR.OperationNode(getSg(), op, 1)
-	node.out.type = t
+	node.out.type = tOut
 	p[0] = node.out
 	p[2].bind(node[0])
 
@@ -140,10 +140,11 @@ precedence = [
 	('nonassoc', 'DO'),
 	('left', 'LBRACK', 'RBRACK'),
 	('nonassoc', 'AND', 'OR', 'NOT'),
-	('nonassoc', 'EQ'),
+	('nonassoc', 'EQ', 'NEQ'),
 	('nonassoc', 'LT', 'LTEQ', 'GT', 'GTEQ'),
 	('left', 'PLUS', 'MIN'),
 	('left', 'MUL', 'DIV'),
+	('nonassoc', 'LENGTH'),
 	('nonassoc', 'UMIN'),
 	('nonassoc', 'ELSE'),
 	('nonassoc', 'THEN'),
@@ -247,8 +248,12 @@ def p_if_then_else(p):
 	popSg()
 
 	p[0] = node.out
-	p[2].bind(node[0])
 
+	toInt = IGR.OperationNode(getSg(), 'int', 1)
+	p[2].bind(toInt[0])
+	toInt.out.typ = int
+
+	toInt.out.bind(node[0])
 	p[5].bind(node.thn.exit)
 	p[8].bind(node.els.exit)
 
@@ -316,10 +321,6 @@ def p_call(p):
 		error.wrongArgCount(p, 1)
 	else: 
 		node.out.typ = graph[p[1]].exit.typ
-
-	for i in xrange(0, len(p[3]) - 1):
-		el = p[3][i]
-		el.bind(node[i])
 
 	p[0] = node.out
 	for i in xrange(0, len(p[3])):
@@ -403,18 +404,24 @@ def p_binops_gteq(p):
 def p_binops_eq(p):
 	''' ops : expression EQ   expression '''
 	create_binop(p, 'equals', None, bool)
+def p_binops_neq(p):
+	''' ops : expression NEQ   expression '''
+	create_binop(p, 'notEq', None, bool)
 def p_binops_and(p):
 	''' ops : expression AND expression '''
 	create_binop(p, 'and', bool, bool)
 def p_binops_or(p):
 	''' ops : expression OR  expression '''
 	create_binop(p, 'or', bool, bool)
+def p_unops_len(p):
+	''' ops : LENGTH expression'''
+	create_unop(p, 'arrLen', list, int)
 def p_unops_not(p):
 	''' ops : NOT expression'''
-	create_unop(p, 'not', bool)
+	create_unop(p, 'not', bool, bool)
 def p_unops_min(p):
 	'''	ops	: MIN expression %prec UMIN'''
-	create_unop(p, 'neg', int)
+	create_unop(p, 'neg', int, int)
 def p_unops_paren(p):
 	''' ops : LPAREN expression RPAREN'''
 	p[0] = p[2]
