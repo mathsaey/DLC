@@ -49,7 +49,7 @@ def nameInScope(name):
 	return False
 
 def getLocalName(name, lvl):
-	for scope in scopes[lvl]:
+	for scope in reversed(scopes[lvl]):
 		if name in scope:
 			return scope[name]
 
@@ -103,7 +103,7 @@ def isCompound():
 
 def checkTypes(p, idx, values, expected):
 	for i in xrange(0, len(values)):
-		if values[i].typ and (values[i].typ is not expected[i]):
+		if values[i].typ and expected[i] and values[i].typ is not expected[i]:
 			error.wrongType(p, idx)
 
 def matchTypes(p, idx, t1, t2, t3):
@@ -138,16 +138,17 @@ precedence = [
 	('nonassoc', 'IN'),
 	('nonassoc', 'FOR'),
 	('nonassoc', 'DO'),
-	('left', 'LBRACK', 'RBRACK'),
+	('nonassoc', 'ELSE'),
+	('nonassoc', 'THEN'),
+	('left',     'LBRACK', 'RBRACK'),
 	('nonassoc', 'AND', 'OR', 'NOT'),
 	('nonassoc', 'EQ', 'NEQ'),
 	('nonassoc', 'LT', 'LTEQ', 'GT', 'GTEQ'),
-	('left', 'PLUS', 'MIN'),
-	('left', 'MUL', 'DIV'),
+	('left',     'PLUS', 'MIN'),
+	('left',     'MUL', 'DIV'),
 	('nonassoc', 'LENGTH'),
 	('nonassoc', 'UMIN'),
-	('nonassoc', 'ELSE'),
-	('nonassoc', 'THEN'),
+
 ]
 
 def p_program(p):

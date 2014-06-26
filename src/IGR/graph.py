@@ -134,7 +134,6 @@ class CallNode(Node):
 		self.isRec = sg.func.name == name
 		if self.isRec: self.sg.func.isRec = True
 		self.name  = name
-		self.args  = args
 
 	def __str__(self):
 		return "CallNode '%s' %s" % (self.id, self.name)

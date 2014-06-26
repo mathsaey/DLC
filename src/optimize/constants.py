@@ -8,6 +8,16 @@
 import backend
 import IGR
 
+didChange = True
+
+def setChange():
+	global didChange
+	didChange = True
+
+def resetChange():
+	global didChange
+	didChange = False
+
 def isLit(node):
 	for port in node.ports:
 		if not port.hasLit():
@@ -19,7 +29,6 @@ def getVal(node):
 	values = [port.src.val for port in node.ports]
 	for port in node.ports: port.src = None
 	node.out.targets = []
-
 	dis = backend.convert(node.sg.func.graph, linkTo = node)
 	res = backend.run(values, dis)
 	node.out.targets = targets
@@ -32,6 +41,7 @@ def propagate(node, val):
 	for port in node.ports: 
 		if port.src: port.src.removeBound(port)
 	node.remove()
+	setChange()
 
 def node(node):
 	if node.isCall():
@@ -42,16 +52,19 @@ def node(node):
 		propagate(node, val)
 
 def sg(sg):
-	if sg.isFunc() or not sg.exit.hasLit(): return
+	if (sg.isFunc() and sg.name != 'main') or not sg.exit.hasLit(): return
 	node = IGR.ConstantNode(sg, sg.exit.src.val)
 	node.out.bind(sg.exit)
 	sg.entry[0].bind(node[0])
 
+
 def remove(graph):
-	IGR.traverse(graph,
-		lambda x : node(x),
-		lambda x : None,
-		lambda x : sg(x),
-		lambda x : None,
-		lambda x : None
-	)
+	while didChange:
+		resetChange()
+		IGR.traverse(graph, 
+			node,
+			lambda x : None,
+			sg,
+			lambda x : None,
+			lambda x : None
+		)

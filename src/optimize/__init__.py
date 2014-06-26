@@ -2,14 +2,16 @@
 # Mathijs Saey
 # DLC
 
-# This package contains a few optimizations
+# This package contains the optimizations 
 
-import prune as p
+import cse   as _cse
+import prune as _prune
 import autoinline
 import constants
 
-def run(graph, inline = True, prune = True):
+def run(graph, inline = True, prune = True, cse = True):
 	constants.remove(graph)
 
-	if prune:  p.prune(graph)
-	if inline: autoinline.inline(graph, 0)
+	if cse:    _cse.eliminate(graph)
+	if prune:  _prune.prune(graph)
+	if inline: autoinline.inline(graph, 2)

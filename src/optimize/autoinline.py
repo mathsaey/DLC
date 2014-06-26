@@ -26,7 +26,7 @@ def findCalls(graph, dct):
 		lambda x : None
 	)
 
-def insert(graph, sg, node):
+def insert(sg, node):
 	sg = sg.copy()
 	node.sg.nodes += sg.nodes
 
@@ -39,7 +39,7 @@ def insert(graph, sg, node):
 
 		for target in port:
 			node[i].src.bind(target)
-			node[i].src.removeBound(node[i])
+		node[i].src.removeBound(node[i])
 
 	node.remove()
 
@@ -55,7 +55,7 @@ def checkCalls(graph, dct, threshold):
 
 		elif len(lst) <= threshold or graph[name].args is 0:
 			for node in lst: 
-				insert(graph, graph[name], node)
+				insert(graph[name], node)
 				didChange = True
 
 	return didChange
