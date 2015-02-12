@@ -14,7 +14,6 @@ import error
 # ----------------- #
 
 keywords = {
-	'length': 'LENGTH',
 	'true'  : 'TRUE',
 	'false' : 'FALSE',
 	'not'   : 'NOT',

@@ -26,6 +26,10 @@
 			"name": "run DIS",
 			"selector": "source.dis",
 			"cmd":["dvm", "${file_name}"]
+		},{
+			"name": "Compile DFL",
+			"selector": "source.dfl",
+			"cmd":["../src/dlc.py", "--dot", "${file_name}"]
 		}
 	]
 }

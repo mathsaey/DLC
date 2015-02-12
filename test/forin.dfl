@@ -8,4 +8,4 @@ func forin2(a,b):
 
 func main(a,b,c,d): 
 	for e in forin2(a,b) do
-		e + (length forin1(a,b,c,d))
+		e + (arr_length(forin1(a,b,c,d)))

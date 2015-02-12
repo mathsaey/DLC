@@ -14,6 +14,7 @@
 #	- Correct creation of compounds
 
 import ply.yacc
+import natives
 import lexer
 import error
 import IGR
@@ -127,6 +128,32 @@ def create_unop(p, op, tIn, tOut):
 	p[0] = node.out
 	p[2].bind(node[0])
 
+def create_nativeop(p):
+	nat = natives.get(p[1])
+	lst = p[3]
+
+	node = IGR.OperationNode(getSg(), nat.disName, len(lst))
+
+	if len(lst) is not len(nat.inTypes): 
+		error.wrongArgCount(p, 1)
+	else:
+		checkTypes(p, 1, lst, nat.inTypes)
+
+	node.out.typ = nat.outType
+	return node
+
+def create_callNode(p):
+	node   = IGR.CallNode(getSg(), p[1], len(p[3]))
+
+	if p[1] not in graph:
+		error.unknownFunc(p,1)
+	elif graph[p[1]].args is not len(p[3]):
+		error.wrongArgCount(p, 1)
+	else: 
+		node.out.typ = graph[p[1]].exit.typ
+
+	return node
+
 # ------ #
 # Parser #
 # ------ #
@@ -146,7 +173,6 @@ precedence = [
 	('nonassoc', 'LT', 'LTEQ', 'GT', 'GTEQ'),
 	('left',     'PLUS', 'MIN'),
 	('left',     'MUL', 'DIV'),
-	('nonassoc', 'LENGTH'),
 	('nonassoc', 'UMIN'),
 
 ]
@@ -314,14 +340,11 @@ def p_for_gen(p):
 
 def p_call(p):
 	''' expression : NAME LPAREN argLst RPAREN'''
-	node = IGR.CallNode(getSg(), p[1], len(p[3]))
-
-	if p[1] not in graph:
-		error.unknownFunc(p,1)
-	elif graph[p[1]].args is not len(p[3]):
-		error.wrongArgCount(p, 1)
-	else: 
-		node.out.typ = graph[p[1]].exit.typ
+	node = None
+	if natives.isNative(p[1]):
+		node = create_nativeop(p)
+	else:
+		node = create_callNode(p)
 
 	p[0] = node.out
 	for i in xrange(0, len(p[3])):
@@ -414,9 +437,6 @@ def p_binops_and(p):
 def p_binops_or(p):
 	''' ops : expression OR  expression '''
 	create_binop(p, 'or', bool, bool)
-def p_unops_len(p):
-	''' ops : LENGTH expression'''
-	create_unop(p, 'arrLen', list, int)
 def p_unops_not(p):
 	''' ops : NOT expression'''
 	create_unop(p, 'not', bool, bool)
