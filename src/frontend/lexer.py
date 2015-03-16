@@ -21,6 +21,7 @@ keywords = {
 	'or'    : 'OR',
 
 	'func'  : 'FUNC',
+	'decl'  : 'DECL',
 	'if'    : 'IF',
 	'then'  : 'THEN',
 	'else'  : 'ELSE',

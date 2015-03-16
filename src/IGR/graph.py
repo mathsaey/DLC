@@ -39,6 +39,13 @@ class Graph(object):
 		del self.functions[name]
 		self.subGraphs.remove(sg)
 
+	def overWriteSubGraph(self, name, sg):
+		idx = self.subGraphs.index(self[name])
+		self.functions.update({name : sg})
+		self.subGraphs[idx] = sg
+		sg.graph = self
+		sg.func  = sg
+
 	def getId(self):
 		self.currentid += 1
 		return self.currentid - 1

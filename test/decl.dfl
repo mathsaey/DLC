@@ -1,0 +1,8 @@
+decl fib 1
+
+func main(n): fib(n)
+
+func fib(n):
+    if n < 2
+        then n
+        else main(n - 1) + main(n - 2)

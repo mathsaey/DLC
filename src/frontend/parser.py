@@ -191,6 +191,8 @@ def p_newScope(p):
 
 def p_funLst(p):
 	''' function_list : function function_list
+	                  | declaration function_list
+	                  | declaration
 	                  | function
 	'''
 
@@ -202,6 +204,10 @@ def p_function(p):
 
 def p_signature(p):
 	'''signature : FUNC NAME LPAREN startFunc parLst RPAREN'''
+	if p[2] in declarions:
+		graph.overWriteSubGraph(p[2], getSg())
+		getSg().name = p[2]
+		return
 	if p[2] in graph: error.duplicateFunc(p,2)
 	graph.addSubGraph(getSg(), p[2])
 	getSg().name = p[2]
@@ -221,6 +227,19 @@ def p_par(p):
 	''' par : NAME '''
 	if nameInScope(p[1]): error.duplicateName(p, 1)
 	addName(p[1], getSg().addParSlot())
+
+# Functions Declarions
+# --------------------
+
+declarions = []
+
+def p_functiondecl(p):
+	'''declaration : DECL NAME NUM'''
+	sg = IGR.SubGraph()
+	sg.name = p[2]
+	graph.addSubGraph(sg, sg.name)
+	for i in xrange(p[3]): sg.addParSlot()
+	declarions.append(p[2])
 
 # Data
 # ----
@@ -286,7 +305,6 @@ def p_if_then_else(p):
 
 	checkTypes(p, 1, (p[2],), (bool,))
 	matchTypes(p, 1, node.thn.exit, node.els.exit, node.out)
-
 
 def p_if_thenScope(p):
 	''' thenScope : '''
