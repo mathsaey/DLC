@@ -14,4 +14,3 @@ def run(graph, inline = True, prune = True, cse = True):
 
 	if cse:    _cse.eliminate(graph)
 	if prune:  _prune.prune(graph)
-	if inline: autoinline.inline(graph, 2)
