@@ -17,6 +17,7 @@ class NodeMap(object):
 		self.srcMap = {}
 		self.dstMap = {}
 		self.namMap = {}
+		self.calMap = {}
 
 	def add(self, key, src, dst):
 		self.srcMap.update({key : src})
@@ -24,10 +25,23 @@ class NodeMap(object):
 
 	def addName(self, name, dst):
 		self.namMap.update({name : dst})
+		if name in self.calMap:
+			for f in self.calMap[name]:
+				f(dst)
+			del self.calMap[name]
+
+	def addCall(self, name, f):
+		if name in self.calMap:
+			lst = self.calMap[name] + [f]
+			self.calMap.update({name : lst})
+		else:
+			self.calMap.update({name : [f]})
 
 	def getSrc(self,  key): return self.srcMap[key]
 	def getDst(self,  key): return self.dstMap[key]
 	def getName(self, key): return self.namMap[key]
+	def namePresent(self, name): return name in self.namMap
+
 
 def convert(graph, entry = 'main', linkTo = None):
 	main = graph[entry]

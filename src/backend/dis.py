@@ -28,19 +28,40 @@ class DIS(object):
 	# Basic Operations
 	# ----------------
 
-	def addString(self, str, chunk):
-		lst = self.memory[chunk]
-		str = "%s%s" % (self.indent * '\t', str)
-		lst.append(str)
+	def indentStr(self, str):
+		return "%s%s" % (self.indent * '\t', str)
 
-	def addKeyedString(self, str, chunk):
+	def insertKey(self, str, key):
+		return str % key
+
+	def createKey(self, chunk):
 		key = self.keys[chunk]
 		self.keys[chunk] += 1
-		str = str % key
+		return key
 
-		str = "%s%s" % (self.indent * '\t', str)
+	def addString(self, str, chunk):
+		lst = self.memory[chunk]
+		lst.append(self.indentStr(str))
+
+	def addKeyedString(self, str, chunk):
+		key = self.createKey(chunk)
+		str = self.insertKey(str, key)
+		str = self.indentStr(str)
+
 		self.memory[chunk].append(str)
 		return (chunk, key)
+
+	def addDelayedString(self, chunk):
+		key = self.createKey(chunk)
+		idx = len(self.memory[chunk])
+		self.memory[chunk].append(None)
+
+		def resFunc(str):
+			str = self.insertKey(str, key)
+			str = self.indentStr(str)
+			self.memory[chunk][idx] = str
+
+		return (chunk, key, resFunc)
 
 	def addNewline(self, chunk):
 		self.addString('', chunk)
@@ -65,10 +86,23 @@ class DIS(object):
 	# DIS Elements
 	# ------------
 
-	def addInstruction(self, chunk, type, args):
+	def createInstruction(self, type, args):
 		argStr = " ".join(map(str, args))
 		ins = "INST %s %s %s" % (type, '%d', argStr)
+		return ins
+
+	def addInstruction(self, chunk, type, args):
+		ins = self.createInstruction(type, args)
 		return self.addKeyedString(ins, chunk)
+
+	def addDelayedInstruction(self, chunk, type):
+		chunk, key, func = self.addDelayedString(chunk)
+
+		def resFunc(args):
+			str = self.createInstruction(type, args)
+			func(str)
+
+		return chunk, key, resFunc
 
 	def addLiteral(self, chunk, key, port, value):
 		str = "LITR %d %d <= %s" % (key, port, value)

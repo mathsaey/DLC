@@ -40,13 +40,25 @@ def addNode(node, dis, map, chunk, type, args = []):
 def operation(n, d, m): addNode(n, d, m, 1, 'OPR', [n.op, n.args])
 def constant(n, d, m):  addNode(n, d, m, 0, 'CNS', ["<=", n.val])
 
+def addMissingCall(n, d, m, retC, retK):
+	callC, callK, f = d.addDelayedInstruction(0, 'CHN')
+	m.addCall(n.name, lambda (dstC, dstK): f([n.args, 1, dstC, dstK, retC, retK]))
+	return callC, callK
+
+def addCall(n, d, m, dstC, dstK, retC, retK):
+	return d.addInstruction(0, 'CHN', [n.args, 1, dstC, dstK, retC, retK])
+
 def call(n, d, m):
-	dstC, dstK = m.getName(n.name)
+	dstC, dstK = (None, None)
 	retC, retK = (0, d.currentKey(0) + 1)
 
-	callKey = d.addInstruction(0, 'CHN', [n.args, 1, dstC, dstK, retC, retK])
-	retKey  = d.addInstruction(0, 'SNK', [])
+	if m.namePresent(n.name):
+		dstC, dstK = m.getName(n.name)
+		callKey = addCall(n, d, m, dstC, dstK, retC, retK)
+	else:
+		callKey = addMissingCall(n, d, m, retC, retK)
 
+	retKey  = d.addInstruction(0, 'SNK', [])
 	m.add(n, retKey, callKey)
 
 # --------- #
