@@ -6,7 +6,6 @@
 
 import cse   as _cse
 import prune as _prune
-import autoinline
 import constants
 
 def run(graph, inline = True, prune = True, cse = True):
